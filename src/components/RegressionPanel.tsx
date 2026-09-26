@@ -6,23 +6,23 @@ import {
   freezeBaseline,
   runRegression,
   stepActionOutcome,
-  validateRegressionStore,
   type CaseRun,
   type RegressionCase,
   type RegressionStore,
 } from '../regression';
 import { StepCard } from './TraceView';
+import {
+  loadManaged,
+  regressionStore,
+  type ManagedStore,
+} from '../persistence';
 
-const STORAGE_KEY = 'url-route-debugger.regression.v1';
-
+/** 首次挂载时读取版本化存储（历史无版本对象自动迁移；损坏隔离到诊断区，
+ * 与规则表互不影响）；加载永不抛出，最差回退为空存储 */
+let regressionManaged: ManagedStore<RegressionStore> | null = null;
 function loadStore(): RegressionStore {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return validateRegressionStore(JSON.parse(raw));
-  } catch {
-    // 本地缓存损坏时回退为空，不影响规则表
-  }
-  return { baseline: null, cases: [] };
+  if (regressionManaged === null) regressionManaged = loadManaged(regressionStore);
+  return regressionManaged.value;
 }
 
 /** 一侧的可观察结果：终止类型 + 该类型对应的可观察字段（不展示原因文案） */
@@ -183,13 +183,10 @@ export function RegressionPanel({ rules }: Props) {
   const [lastRun, setLastRun] = useState<{ stamp: string; results: CaseRun[] } | null>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
-  // 用例与基线持久化到 localStorage（独立于规则表的存储键）
+  // 用例与基线经版本化持久化层原子写入（独立于规则表的存储键）；
+  // 校验不过不写任何键，存储不可用（隐私模式等）静默退回内存，不影响使用
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-    } catch {
-      // 存储不可用（如隐私模式）时静默跳过，不影响使用
-    }
+    regressionManaged?.save(store);
   }, [store]);
 
   const { baseline, cases } = store;

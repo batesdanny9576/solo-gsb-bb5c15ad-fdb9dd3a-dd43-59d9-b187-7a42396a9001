@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Rule, Simulation } from './types';
 import { simulate } from './engine';
 import { DebugSession, debugContextKey } from './debug';
-import { validateRules } from './validate';
-import { SAMPLE_RULES, PRESETS } from './samples';
+import { PRESETS } from './samples';
 import { useRuleHistory } from './useRuleHistory';
 import { RulesPanel } from './components/RulesPanel';
 import { Simulator } from './components/Simulator';
@@ -18,17 +17,15 @@ import {
   parseShareHash,
   type SharePayload,
 } from './share';
+import { loadManaged, rulesStore, type ManagedStore } from './persistence';
+import { StorageDiagnosticsBanner } from './components/StorageDiagnosticsBanner';
 
-const STORAGE_KEY = 'url-route-debugger.rules.v1';
-
+/** 首次渲染时读取一次版本化存储（含历史数据迁移、损坏隔离、临时键恢复）；
+ * 加载永不抛出，损坏数据回退为示例规则并可在诊断横幅中下载 */
+let rulesManaged: ManagedStore<Rule[]> | null = null;
 function loadRules(): Rule[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return validateRules(JSON.parse(raw));
-  } catch {
-    // 本地缓存损坏时回退到示例规则
-  }
-  return structuredClone(SAMPLE_RULES);
+  if (rulesManaged === null) rulesManaged = loadManaged(rulesStore);
+  return rulesManaged.value;
 }
 
 function readPendingShare(): string | null {
@@ -79,7 +76,9 @@ export default function App() {
   const bump = useCallback(() => setDebugTick((t) => t + 1), []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
+    // 经版本化持久化层原子写入：临时键校验通过后再替换主键，
+    // 刷新 / 崩溃落在任何一步都不会读到半写入数据；存储不可用时静默退回内存
+    rulesManaged?.save(rules);
   }, [rules]);
 
   const toggleBreakpoint = useCallback((ruleId: string) => {
@@ -199,6 +198,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <StorageDiagnosticsBanner />
       <header className="app-header">
         <h1>URL 路由规则调试台</h1>
         <p>

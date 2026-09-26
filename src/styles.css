@@ -595,6 +595,44 @@ input.invalid {
   background: rgba(229, 83, 75, 0.1);
 }
 
+/* ---- 本地存储诊断横幅（损坏数据隔离） ---- */
+
+.storage-diag-banner {
+  margin: 0 0 12px;
+}
+
+.storage-diag-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.storage-diag-head .toolbar {
+  display: flex;
+  gap: 8px;
+}
+
+.storage-diag-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.storage-diag-list li {
+  margin: 3px 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.storage-diag-list code {
+  font-size: 12px;
+}
+
 /* ---- 加密分享：模态框 / 解锁页 / 预览 ---- */
 
 .modal-overlay {
