@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Rule, Simulation } from './types';
 import { simulate } from './engine';
 import { DebugSession, debugContextKey } from './debug';
-import { validateRules } from './validate';
-import { SAMPLE_RULES, PRESETS } from './samples';
+import { PRESETS } from './samples';
+import { loadStore, saveStore } from './persist';
+import { rulesStore } from './stores';
 import { useRuleHistory } from './useRuleHistory';
 import { RulesPanel } from './components/RulesPanel';
 import { Simulator } from './components/Simulator';
@@ -13,22 +14,17 @@ import { RegressionPanel } from './components/RegressionPanel';
 import { CoveragePanel } from './components/CoveragePanel';
 import { ShareCreateDialog } from './components/ShareCreateDialog';
 import { ShareUnlock } from './components/ShareUnlock';
+import { DiagnosticsBanner } from './components/DiagnosticsBanner';
 import {
   cleanLocationUrl,
   parseShareHash,
   type SharePayload,
 } from './share';
 
-const STORAGE_KEY = 'url-route-debugger.rules.v1';
-
 function loadRules(): Rule[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return validateRules(JSON.parse(raw));
-  } catch {
-    // 本地缓存损坏时回退到示例规则
-  }
-  return structuredClone(SAMPLE_RULES);
+  // 版本化持久化层：旧版裸数据自动迁移，损坏 / 未知版本数据隔离为诊断记录，
+  // 任何失败都回退到示例规则，不阻塞启动
+  return loadStore(rulesStore).value;
 }
 
 function readPendingShare(): string | null {
@@ -79,7 +75,8 @@ export default function App() {
   const bump = useCallback(() => setDebugTick((t) => t + 1), []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
+    // 临时键校验后替换主键；存储不可用（隐私模式等）时静默跳过
+    saveStore(rulesStore, rules);
   }, [rules]);
 
   const toggleBreakpoint = useCallback((ruleId: string) => {
@@ -206,6 +203,7 @@ export default function App() {
           重写后从第一条规则重新匹配；以「方法 + URL」识别循环，最多执行 20 步。
         </p>
       </header>
+      <DiagnosticsBanner />
       <main className="layout">
         <div className="left-col">
           <RulesPanel

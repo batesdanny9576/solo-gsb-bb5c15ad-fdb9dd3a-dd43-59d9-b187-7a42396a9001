@@ -595,6 +595,23 @@ input.invalid {
   background: rgba(229, 83, 75, 0.1);
 }
 
+/* ---- 本地数据隔离提示条 ---- */
+
+.diagnostics-banner {
+  margin: 0 0 12px;
+}
+
+.diagnostics-banner .diag-item {
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.diagnostics-banner .diag-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 /* ---- 加密分享：模态框 / 解锁页 / 预览 ---- */
 
 .modal-overlay {

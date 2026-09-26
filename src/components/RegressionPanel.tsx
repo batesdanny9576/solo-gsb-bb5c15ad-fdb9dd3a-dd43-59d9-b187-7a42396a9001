@@ -2,27 +2,21 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Rule, Simulation, Step } from '../types';
 import { REQUEST_METHODS } from '../types';
 import { uid } from '../validate';
+import { loadStore, saveStore } from '../persist';
+import { regressionStore } from '../stores';
 import {
   freezeBaseline,
   runRegression,
   stepActionOutcome,
-  validateRegressionStore,
   type CaseRun,
   type RegressionCase,
   type RegressionStore,
 } from '../regression';
 import { StepCard } from './TraceView';
 
-const STORAGE_KEY = 'url-route-debugger.regression.v1';
-
-function loadStore(): RegressionStore {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return validateRegressionStore(JSON.parse(raw));
-  } catch {
-    // 本地缓存损坏时回退为空，不影响规则表
-  }
-  return { baseline: null, cases: [] };
+function loadPersisted(): RegressionStore {
+  // 版本化持久化层：损坏 / 未知版本数据隔离为诊断记录，回退为空，不影响规则表
+  return loadStore(regressionStore).value;
 }
 
 /** 一侧的可观察结果：终止类型 + 该类型对应的可观察字段（不展示原因文案） */
@@ -179,17 +173,14 @@ interface Props {
 }
 
 export function RegressionPanel({ rules }: Props) {
-  const [store, setStore] = useState<RegressionStore>(loadStore);
+  const [store, setStore] = useState<RegressionStore>(loadPersisted);
   const [lastRun, setLastRun] = useState<{ stamp: string; results: CaseRun[] } | null>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
-  // 用例与基线持久化到 localStorage（独立于规则表的存储键）
+  // 用例与基线持久化到 localStorage（独立于规则表的存储键）；
+  // 临时键校验后替换主键，存储不可用时静默跳过
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-    } catch {
-      // 存储不可用（如隐私模式）时静默跳过，不影响使用
-    }
+    saveStore(regressionStore, store);
   }, [store]);
 
   const { baseline, cases } = store;
